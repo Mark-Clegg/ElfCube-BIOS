@@ -1,0 +1,5 @@
+.kateproject
+*.kate-swp
+*.hex
+*.lst
+*.idiot
