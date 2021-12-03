@@ -117,31 +117,72 @@ vector_start    dw      reset       ; $FFFD = Reset
                 dw      serial_read
                 dw      serial_count
                 dw      serial_write
+                dw      serial_write_immediate
                 dw      serial_writehex
+                dw      serial_writehex_immediate
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
-BIOS_Reset      equ     $FFFD
-BIOS_SerialRead equ     $FFFA
-BIOS_SerialCount equ    $FFF7
-BIOS_SerialWrite equ    $FFF4
-BIOS_SerialWriteHex equ $FFF1
+
 
                 subroutine
                 align   $100
-start
-;
 
+                include BIOS.asm
+start           sex     r2
 
-.loop           sex     r2
-                call    BIOS_SerialRead
+.loop           call    BIOS_SerialRead
                 str     r2
                 smi     'x'
                 bz      exit
                 ldn     r2
                 call    BIOS_SerialWriteHex
+                call    BIOS_SerialWriteImmediate
+                db      ' '
+                call    BIOS_SerialCount
+                call    BIOS_SerialWriteHex
+                smi     $0a
+                bdf     exit
+                call    BIOS_SerialWriteImmediate
+                db      $0D
+                call    BIOS_SerialWriteImmediate
+                db      $0A
+
+                ldi     $ff
+.l1             nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                nop
+                smi     $1
+                bnz     .l1
                 br      .loop
 
-exit            lbr     BIOS_Reset
+exit            call    BIOS_SerialWriteImmediate
+                db      'x'
+                call    BIOS_SerialWriteImmediate
+                db      $0d
+                call    BIOS_SerialWriteImmediate
+                db      $0a
+                lbr     BIOS_Reset
 
                 end

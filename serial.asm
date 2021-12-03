@@ -124,17 +124,17 @@ serial_read     ldi     high(serial_head)
                 dec     rf
                 bz      .wait
 
-                ldn     rf
+                ldx
                 str     r2
                 adi     1
                 ani     serial_bufsize - 1
                 ori     low(serial_buffer) & ~(serial_bufsize - 1)
                 str     rf
 
-                ldn     r2
+                sex     r2
+                ldx
                 plo     rf
                 ldn     rf
-                sex     r2
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -148,7 +148,9 @@ serial_count    ldi     high(serial_head)
                 ldi     low(serial_head)
                 plo     rf
                 lda     rf
+                sex     rf
                 sd
+                sex     r2
                 lsdf
                 ani     serial_bufsize - 1
                 return
@@ -157,15 +159,18 @@ serial_count    ldi     high(serial_head)
 ; serial_write
 ;
 ; Write the character in D to the UART
+; Returns the character written
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_write
+serial_write_immediate
+                lda     r6
 serial_write    stxd
                 seq
 .loop           inp     UART                    ; Wait for THRE
                 shlc
                 bnf     .loop
                 req
-                inc     r2
+                irx
                 out     UART
                 dec     r2
                 return
@@ -174,9 +179,13 @@ serial_write    stxd
 ; serial_writehex
 ;
 ; Write a byte as 2 hex digits
+; Returns the character written
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_writehex
+serial_writehex_immediate
+                lda     r6
 serial_writehex stxd
+                stxd
                 shr                             ; High nibble
                 shr
                 shr
@@ -191,9 +200,9 @@ serial_writehex stxd
                 shlc
                 bnf     .loop1
                 req
-                inc     r2
+                irx
                 out     UART
-                ldn     r2                      ; Low nibble
+                ldx                             ; Low nibble
                 ani     $0f
                 smi     $0a
                 lsnf
@@ -205,7 +214,7 @@ serial_writehex stxd
                 shlc
                 bnf     .loop2
                 req
-                inc     r2
+                irx
                 out     UART
-                dec     r2
+                ldx
                 return
