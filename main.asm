@@ -120,6 +120,8 @@ vector_start    dw      reset       ; $FFFD = Reset
                 dw      serial_write_immediate
                 dw      serial_writehex
                 dw      serial_writehex_immediate
+                dw      serial_writestring
+                dw      serial_writestring_immediate
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
@@ -136,53 +138,17 @@ start           sex     r2
                 smi     'x'
                 bz      exit
                 ldn     r2
-                call    BIOS_SerialWriteHex
-                call    BIOS_SerialWriteImmediate
-                db      ' '
-                call    BIOS_SerialCount
-                call    BIOS_SerialWriteHex
-                smi     $0a
-                bdf     exit
-                call    BIOS_SerialWriteImmediate
-                db      $0D
-                call    BIOS_SerialWriteImmediate
-                db      $0A
-
-                ldi     $ff
-.l1             nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                nop
-                smi     $1
-                bnz     .l1
+                call    BIOS_SerialWrite
                 br      .loop
 
-exit            call    BIOS_SerialWriteImmediate
-                db      'x'
-                call    BIOS_SerialWriteImmediate
-                db      $0d
-                call    BIOS_SerialWriteImmediate
-                db      $0a
+exit            call    BIOS_SerialWriteStringImmediate
+                db      "\r\nDone\r\n",0
+                ldi     high(string)
+                phi     re
+                ldi     low(string)
+                plo     re
+                call    BIOS_SerialWriteString
                 lbr     BIOS_Reset
 
+string          db      "\r\nPress Enter to return to Idiot/4\r\n",0
                 end

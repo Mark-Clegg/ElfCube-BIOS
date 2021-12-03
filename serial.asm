@@ -218,3 +218,48 @@ serial_writehex stxd
                 out     UART
                 ldx
                 return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; serial_writestring
+;
+; Write a null terminated string stored at RE
+; Returns with RE pointing to next byte after
+; the string
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine serial_writestring
+serial_writestring
+.next_char      ldn     re
+                bz      .exit
+                seq
+.wait_thre      inp     UART
+                shlc
+                bnf     .wait_thre
+                req
+                sex     re
+                out     UART
+                sex     r2
+                br      .next_char
+.exit           inc     re
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; serial_writestringimmediate
+;
+; Write the null terminated string immediately
+; following the call
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine serial_writestring_immediate
+serial_writestring_immediate
+.next_char      ldn     r6
+                bz      .exit
+                seq
+.wait_thre      inp     UART
+                shlc
+                bnf     .wait_thre
+                req
+                sex     r6
+                out     UART
+                sex     r2
+                br      .next_char
+.exit           inc     r6
+                return

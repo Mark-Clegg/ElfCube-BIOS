@@ -40,6 +40,8 @@ All BIOS functions are called using SCRT (or 1806 SCAL R6...) via entry vectors 
 
 Application code should include the BIOS.asm to provide easy reference to the supplied interfaces.
 
+Unless otherwise stated, all registers are preserved except those used to pass parameters to the function.
+
 ## BIOS_Reset ($FFFD)
 
 Perform a system restart, reset X=P=0 and LBR to $0000
@@ -67,3 +69,11 @@ Writes the character in D to the UART as two hexadecimal digits (D is preserved)
 ## BIOS_SerialWriteHexImmediate ($FFEB)
 
 Writes the next byte following the call to the UART as two hexadecimal digits (returns with the byte transmitted in D)
+
+## BIOS_SerialWriteString ($FFE8)
+
+Writes the ASCIIZ string starting at the address in RE to the UART. Returns with RE pointing to the next byte after the ull terminator.
+
+## BIOS_SerialWriteStringImmediate ($FFE5)
+
+Writes the ASCIIZ string immediately following the call to the UART.

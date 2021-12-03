@@ -11,3 +11,5 @@ BIOS_SerialWrite                equ     $FFF4
 BIOS_SerialWriteImmediate       equ     $FFF1
 BIOS_SerialWriteHex             equ     $FFEE
 BIOS_SerialWriteHexImmediate    equ     $FFEB
+BIOS_SerialWriteString          equ     $FFE8
+BIOS_SerialWriteStringImmediate equ     $FFE5
