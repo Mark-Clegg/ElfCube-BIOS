@@ -72,7 +72,11 @@ Writes the next byte following the call to the UART as two hexadecimal digits (r
 
 ## BIOS_SerialWriteString ($FFE8)
 
-Writes the ASCIIZ string starting at the address in RE to the UART. Returns with RE pointing to the next byte after the ull terminator.
+Writes the ASCIIZ string starting at the address in RE to the UART. Returns with RE pointing to the next byte after the null terminator.
+
+## BIOS_SerialWriteStringAt
+
+Writes the ASCIIZ string starting at the address following the call. Returns with RE pointing to the next byte after the null terminator.
 
 ## BIOS_SerialWriteStringImmediate ($FFE5)
 

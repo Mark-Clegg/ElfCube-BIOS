@@ -157,6 +157,7 @@ serial_count    ldi     high(serial_head)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; serial_write
+; serial_write_immediate
 ;
 ; Write the character in D to the UART
 ; Returns the character written
@@ -176,15 +177,17 @@ serial_write    stxd
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_writehex
+; serial_write_hex
+; serial_write_hex_immediate
 ;
 ; Write a byte as 2 hex digits
 ; Returns the character written
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine serial_writehex
-serial_writehex_immediate
+                subroutine serial_write_hex
+serial_write_hex_immediate
                 lda     r6
-serial_writehex stxd
+serial_write_hex
+                stxd
                 stxd
                 shr                             ; High nibble
                 shr
@@ -219,15 +222,22 @@ serial_writehex stxd
                 ldx
                 return
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_writestring
+; serial_write_string
+; serial_write_string_at
 ;
 ; Write a null terminated string stored at RE
 ; Returns with RE pointing to next byte after
 ; the string
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine serial_writestring
-serial_writestring
+                subroutine serial_write_string
+serial_write_string_at
+                lda     r6
+                phi     re
+                lda     r6
+                plo     re
+serial_write_string
 .next_char      ldn     re
                 bz      .exit
                 seq
@@ -243,13 +253,13 @@ serial_writestring
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_writestringimmediate
+; serial_write_string_immediate
 ;
 ; Write the null terminated string immediately
 ; following the call
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine serial_writestring_immediate
-serial_writestring_immediate
+                subroutine serial_write_string_immediate
+serial_write_string_immediate
 .next_char      ldn     r6
                 bz      .exit
                 seq

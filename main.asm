@@ -118,37 +118,44 @@ vector_start    dw      reset       ; $FFFD = Reset
                 dw      serial_count
                 dw      serial_write
                 dw      serial_write_immediate
-                dw      serial_writehex
-                dw      serial_writehex_immediate
-                dw      serial_writestring
-                dw      serial_writestring_immediate
+                dw      serial_write_hex
+                dw      serial_write_hex_immediate
+                dw      serial_write_string
+                dw      serial_write_string_at
+                dw      serial_write_string_immediate
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
 
 
                 subroutine
+                .1802
+                list    off
+                include BIOS.asm
+                list on
+
                 align   $100
 
-                include BIOS.asm
 start           sex     r2
 
-.loop           call    BIOS_SerialRead
+.loop           BIOS_SerialRead
                 str     r2
                 smi     'x'
-                bz      exit
+                bz      .exit
                 ldn     r2
-                call    BIOS_SerialWrite
+                BIOS_SerialWrite
                 br      .loop
 
-exit            call    BIOS_SerialWriteStringImmediate
-                db      "\r\nDone\r\n",0
-                ldi     high(string)
+.exit           BIOS_SerialWriteStringImmediate "\r\nDone\r\n"
+                ldi     high(.string)
                 phi     re
-                ldi     low(string)
+                ldi     low(.string)
                 plo     re
-                call    BIOS_SerialWriteString
-                lbr     BIOS_Reset
+                BIOS_SerialWriteString
 
-string          db      "\r\nPress Enter to return to Idiot/4\r\n",0
+                BIOS_SerialWriteStringAt .string
+
+                BIOS_Reset
+
+.string         db      "\r\nPress Enter to return to Idiot/4\r\n",0
                 end
