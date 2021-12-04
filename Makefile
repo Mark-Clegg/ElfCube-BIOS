@@ -1,13 +1,13 @@
 ASMX := asmx
 
 .PHONY: all
-all: idiot
+all: BIOS.idiot
 
-idiot: *.asm
+BIOS.idiot: *.asm
 	@rm -f BIOS.hex
 	$(ASMX) -e -w -l BIOS.lst -i -o BIOS.idiot main.asm || (rm BIOS.idiot; false)
 
-hex:   *.asm
+BIOS.hex:   *.asm
 	@rm -f BIOS.idiot
 	$(ASMX) -e -w -l BIOS.lst    -o BIOS.hex   main.asm || (rm BIOS.hex; false)
 
@@ -16,7 +16,7 @@ clean:
 	rm -f *.lst *.idiot *.hex
 
 .PHONY: install
-install:idiot
+install:BIOS.idiot
 	screen -X slowpaste 5
 	screen -X readreg p "`pwd`/BIOS.idiot"
 	screen -X paste p

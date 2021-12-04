@@ -1,8 +1,8 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; SERIAL.ASM
-;
-; Serial API functions
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SERIAL.ASM
+;;
+;; Serial API functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 serial_bufsize  equ     $10                     ; Defines the size of the Serial Input FIFO (power of 2)
 
@@ -16,12 +16,12 @@ serial_tail     ds      1                       ; next write location
 
                 seg     bios_code
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_init
-;
-; Initialise the 1854 UART,setup the
-; interrupt handler and enable interrupts
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_init
+;;
+;; Initialise the 1854 UART,setup the
+;; interrupt handler and enable interrupts
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_init
 serial_init     ldi     high(interrupt)         ; Initialise Interrupt handler (R1)
                 phi     r1
@@ -49,12 +49,12 @@ serial_init     ldi     high(interrupt)         ; Initialise Interrupt handler (
                 stxd
                 return
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; INTERRUPT Service routine
-;
-; Check and read a character from the 1854 UART and store
-; in the serial_buffer at serial_tail
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INTERRUPT Service routine
+;;
+;; Check and read a character from the 1854 UART and store
+;; in the serial_buffer at serial_tail
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine interrupt
                 ret
 interrupt       dec     r2
@@ -106,11 +106,11 @@ interrupt       dec     r2
 .qoff           ldxa                            ; Restore D
                 br      interrupt - 1
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_read
-;
-; Return the next character from the serial buffer
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_read
+;;
+;; Return the next character from the serial buffer
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_read
 serial_read     ldi     high(serial_head)
                 phi     rf
@@ -137,11 +137,11 @@ serial_read     ldi     high(serial_head)
                 ldn     rf
                 return
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_count
-;
-; Return the number of characters in the buffer
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_count
+;;
+;; Return the number of characters in the buffer
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_count
 serial_count    ldi     high(serial_head)
                 phi     rf
@@ -155,13 +155,13 @@ serial_count    ldi     high(serial_head)
                 ani     serial_bufsize - 1
                 return
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_write
-; serial_write_immediate
-;
-; Write the character in D to the UART
-; Returns the character written
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_write
+;; serial_write_immediate
+;;
+;; Write the character in D to the UART
+;; Returns the character written
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_write
 serial_write_immediate
                 lda     r6
@@ -176,13 +176,13 @@ serial_write    stxd
                 dec     r2
                 return
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_write_hex
-; serial_write_hex_immediate
-;
-; Write a byte as 2 hex digits
-; Returns the character written
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_write_hex
+;; serial_write_hex_immediate
+;;
+;; Write a byte as 2 hex digits
+;; Returns the character written
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_write_hex
 serial_write_hex_immediate
                 lda     r6
@@ -222,15 +222,14 @@ serial_write_hex
                 ldx
                 return
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_write_string
-; serial_write_string_at
-;
-; Write a null terminated string stored at RE
-; Returns with RE pointing to next byte after
-; the string
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_write_string
+;; serial_write_string_at
+;;
+;; Write a null terminated string stored at RE
+;; Returns with RE pointing to next byte after
+;; the string
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_write_string
 serial_write_string_at
                 lda     r6
@@ -252,12 +251,12 @@ serial_write_string
 .exit           inc     re
                 return
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; serial_write_string_immediate
-;
-; Write the null terminated string immediately
-; following the call
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; serial_write_string_immediate
+;;
+;; Write the null terminated string immediately
+;; following the call
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine serial_write_string_immediate
 serial_write_string_immediate
 .next_char      ldn     r6

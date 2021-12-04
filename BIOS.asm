@@ -1,8 +1,10 @@
-; Elf Cube BIOS
-;
-; Version 1.0
-;
-; BIOS Entry Points
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Elf Cube BIOS
+;;
+;; Version 1.0
+;;
+;; BIOS Entry Points
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 BIOS_Reset                      equ     $FFFD
 BIOS_SerialRead                 equ     $FFFA
@@ -15,9 +17,33 @@ BIOS_SerialWriteString          equ     $FFE8
 BIOS_SerialWriteStringAt        equ     $FFE5
 BIOS_SerialWriteStringImmediate equ     $FFE2
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Standard CALL
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+call            macro   addr
+                sep     r4
+                dw      addr
+                endm
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Standard Return
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+return          macro
+                sep     r5
+                endm
+
+;; Define Macros to access the BIOS functions, based on
+;; Processor type
 
                 if CPU(1802)
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;   *    ***     *     **
+;;  **   *   *   * *   *  *
+;;   *    ***   *   *     *
+;;   *   *   *  *   *   **
+;;   *   *   *   * *   *
+;;  ***   ***     *    ****
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BIOS_Reset      macro
                 lbr     BIOS_Reset
                 endm
@@ -74,6 +100,15 @@ BIOS_SerialWriteStringImmediate macro   string
                 endif
 
                 if CPU(1804) || CPU(1805) || CPU(1806)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;   *    ***     *       *       *  ****      *   ***
+;;  **   *   *   * *     **      *   *        *   *
+;;   *    ***   *   *   * *     *    ***     *    ****
+;;   *   *   *  *   *  *****    *       *    *    *   *
+;;   *   *   *   * *      *    *     *  *   *     *   *
+;;  ***   ***     *       *   *       **   *       ***
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 BIOS_Reset      macro
                 lbr     BIOS_Reset

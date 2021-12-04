@@ -1,27 +1,34 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Elf-Cube BIOS
-;
-; Version 1.0
-;
-; Basic Input Output system calls for the
-; fully populated Elf-Cube:
-; - Processor Card (1802 or 1806)
-; - UART Card (Interrupt driven)
-; - Video Card (TMS9929A)
-; - IDE Adapter (8 bit SD Card)
-;
-; (c) M.Clegg 2021
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Elf-Cube BIOS
+;;
+;; Version 1.0
+;;
+;; Basic Input Output system calls for the
+;; fully populated Elf-Cube:
+;; - Processor Card (1802 or 1806)
+;; - UART Card (Interrupt driven)
+;; - Video Card (TMS9929A)
+;; - IDE Adapter (8 bit SD Card)
+;;
+;; (c) M.Clegg 2021
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+                cpu     1802
+
+                list    off
+                include BIOS.asm
+                list    on
+                list    macro
 
 himem           equ     $10000                  ; Top of RAM+1 - should be $ffff when BIOS is in EEPROM
 
-; PORT Definitions
+; PORT Assignments
 IDE_Address     equ     1
 IDE_Data        equ     2
 UART            equ     3
 Video           equ     4
 
-
+; Memory Map
 vectors         equ     himem - 1               ; BIOS Entry Points start here and work down
 
                 seg     bios_data               ; BIOS Data Area
@@ -29,12 +36,6 @@ vectors         equ     himem - 1               ; BIOS Entry Points start here a
 
                 seg     bios_stack              ; Stack
 stack           org     himem - $200 -1
-
-
-                cpu     1802
-
-                include macros.asm
-                list    macro
 
                 seg     bios_code
 origin          org     $8000
@@ -49,9 +50,9 @@ origin          org     $8000
                 plo     r3
                 sep     r3
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine bios_init
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bios_init       ldi     high(stack)             ; Initialise Stack Pointer (R2)
                 phi     r2
                 ldi     low(stack)
@@ -106,13 +107,13 @@ bios_init       ldi     high(stack)             ; Initialise Stack Pointer (R2)
                 include scrt.asm
                 include serial.asm
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; BIOS Entry Vector Initialisation Table
-; Contains the addresses of the published BIOS Interface routines
-;
-; These should be listed in reverse order, and will be copied to high
-; RAM with each entry point preceeded by an LBR ($C0) instruction
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; BIOS Entry Vector Initialisation Table
+;; Contains the addresses of the published BIOS Interface routines
+;;
+;; These should be listed in reverse order, and will be copied to high
+;; RAM with each entry point preceeded by an LBR ($C0) instruction
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 vector_start    dw      reset       ; $FFFD = Reset
                 dw      serial_read
                 dw      serial_count
@@ -130,9 +131,6 @@ vector_count    equ (vector_end - vector_start) / 2
 
                 subroutine
                 .1802
-                list    off
-                include BIOS.asm
-                list on
 
                 align   $100
 
