@@ -151,7 +151,7 @@ BIOS_SerialWriteStringAt    macro   address
 
 BIOS_SerialWriteStringImmediate macro   string
                 scal    r6, BIOS_SerialWriteStringImmediate
-                db      string,0
+                db      string, 0
                 endm
 
                 endif

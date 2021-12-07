@@ -39,4 +39,4 @@ sret            plo     rf
                 ldx
                 plo     r6
                 glo     rf
-                br      sret-1
+                lbr      sret-1

@@ -37,14 +37,16 @@ vectors         equ     himem - 1               ; BIOS Entry Points start here a
                 seg     bios_stack              ; Stack
 stack           org     himem - $200 -1
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MAIN CODE START
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 seg     bios_code
 origin          org     $8000
 
                 dis
                 db      $00
 
-                assert high(bios_init) = high(.)
-                ghi     r0
+                ldi     high(bios_init)
                 phi     r3
                 ldi     low(bios_init)
                 plo     r3
@@ -53,7 +55,12 @@ origin          org     $8000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine bios_init
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bios_init       ldi     high(stack)             ; Initialise Stack Pointer (R2)
+bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (R1)
+                phi     r1
+                ldi     low(interrupt)
+                plo     r1
+
+                ldi     high(stack)             ; Initialise Stack Pointer (R2)
                 phi     r2
                 ldi     low(stack)
                 plo     r2
@@ -98,14 +105,14 @@ bios_init       ldi     high(stack)             ; Initialise Stack Pointer (R2)
                 sex     r2
                 call    serial_init
 
-                sex     r3
+                sex     r3                      ; Enable interrupts
                 ret
                 db      $23
                 lbr     start                   ; BIOS Initialisation complete - Enter OS ???
 
-                include reset.asm
                 include scrt.asm
                 include serial.asm
+                include reset.asm
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; BIOS Entry Vector Initialisation Table
@@ -127,14 +134,12 @@ vector_start    dw      reset       ; $FFFD = Reset
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
-
-
                 subroutine
                 .1802
 
                 align   $100
 
-start           sex     r2
+start
 
 .loop           BIOS_SerialRead
                 str     r2
@@ -142,15 +147,16 @@ start           sex     r2
                 bz      .exit
                 ldn     r2
                 BIOS_SerialWrite
+                BIOS_SerialWriteImmediate '-'
+                ghi     r2
+                BIOS_SerialWriteHex
+                glo     r2
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate '\r\n'
+
                 br      .loop
 
 .exit           BIOS_SerialWriteStringImmediate "\r\nDone\r\n"
-                ldi     high(.string)
-                phi     re
-                ldi     low(.string)
-                plo     re
-                BIOS_SerialWriteString
-
                 BIOS_SerialWriteStringAt .string
 
                 BIOS_Reset

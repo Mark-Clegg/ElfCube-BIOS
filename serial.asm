@@ -47,6 +47,7 @@ serial_init     ldi     high(interrupt)         ; Initialise Interrupt handler (
                 ldi     low(serial_buffer)
                 stxd
                 stxd
+                sex     r2
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
