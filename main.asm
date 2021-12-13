@@ -23,8 +23,8 @@
 himem           equ     $10000                  ; Top of RAM+1 - should be $ffff when BIOS is in EEPROM
 
 ; PORT Assignments
-IDE_Address     equ     1
-IDE_Data        equ     2
+IDE_Data        equ     1
+IDE_Address     equ     2
 UART            equ     3
 Video           equ     4
 
@@ -104,6 +104,7 @@ bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (
 
                 sex     r2
                 call    serial_init
+                call    ide_init
 
                 sex     r3                      ; Enable interrupts
                 ret
@@ -113,6 +114,7 @@ bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (
                 include scrt.asm
                 include serial.asm
                 include reset.asm
+                include ide.asm
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; BIOS Entry Vector Initialisation Table
@@ -131,6 +133,8 @@ vector_start    dw      reset       ; $FFFD = Reset
                 dw      serial_write_string
                 dw      serial_write_string_at
                 dw      serial_write_string_immediate
+                dw      ide_identity_string
+                dw      ide_sector_count
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
@@ -139,7 +143,11 @@ vector_count    equ (vector_end - vector_start) / 2
 
                 align   $100
 
-start
+start           ghi     r2
+                BIOS_SerialWriteHex
+                glo     r2
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate "\r\n"
 
 .loop           BIOS_SerialRead
                 str     r2
@@ -152,12 +160,51 @@ start
                 BIOS_SerialWriteHex
                 glo     r2
                 BIOS_SerialWriteHex
+                BIOS_SerialWRiteImmediate '-'
+                BIOS_SerialCount
+                BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate '\r\n'
 
                 br      .loop
 
 .exit           BIOS_SerialWriteStringImmediate "\r\nDone\r\n"
                 BIOS_SerialWriteStringAt .string
+
+                ghi     r2
+                BIOS_SerialWriteHex
+                glo     r2
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate "\r\n"
+
+                ghi     r2
+                BIOS_SerialWriteHex
+                glo     r2
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate "\r\n"
+
+                BIOS_IDEIdentityString
+                BIOS_SerialWriteString
+                BIOS_SerialWriteStringImmediate "<\r\n"
+
+                BIOS_SerialWriteStringImmediate "Number of Sectors: "
+
+                BIOS_IDESectorCount
+                lda     re
+                BIOS_SerialWriteHex
+                lda     re
+                BIOS_SerialWriteHex
+                lda     re
+                BIOS_SerialWriteHex
+                lda     re
+                BIOS_SerialWriteHex
+
+                BIOS_SerialWriteStringImmediate "\r\n"
+                ghi     r2
+                BIOS_SerialWriteHex
+                glo     r2
+                BIOS_SerialWriteHex
+
+                BIOS_SerialWriteStringImmediate "\r\n"
 
                 BIOS_Reset
 

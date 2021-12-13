@@ -7,6 +7,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 BIOS_Reset                      equ     $FFFD
+
 BIOS_SerialRead                 equ     $FFFA
 BIOS_SerialCount                equ     $FFF7
 BIOS_SerialWrite                equ     $FFF4
@@ -16,6 +17,9 @@ BIOS_SerialWriteHexImmediate    equ     $FFEB
 BIOS_SerialWriteString          equ     $FFE8
 BIOS_SerialWriteStringAt        equ     $FFE5
 BIOS_SerialWriteStringImmediate equ     $FFE2
+
+BIOS_IDEIdentityString          equ     $FFDF
+BIOS_IDESectorCount             equ     $FFDC
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Standard CALL
@@ -97,6 +101,16 @@ BIOS_SerialWriteStringImmediate macro   string
                 db      string,0
                 endm
 
+BIOS_IDEIdentityString  macro
+                sep     r4
+                dw      BIOS_IDEIdentityString
+                endm
+
+BIOS_IDESectorCount macro
+                sep     r4
+                dw      BIOS_IDESectorCount
+                endm
+
                 endif
 
                 if CPU(1804) || CPU(1805) || CPU(1806)
@@ -152,6 +166,14 @@ BIOS_SerialWriteStringAt    macro   address
 BIOS_SerialWriteStringImmediate macro   string
                 scal    r6, BIOS_SerialWriteStringImmediate
                 db      string, 0
+                endm
+
+BIOS_IDEIdentityString  macro
+                scal    r6, BIOS_IDEIdentityString
+                endm
+
+BIOS_IDESectorCount macro
+                scal    r6, BIOS_IDESectorCount
                 endm
 
                 endif

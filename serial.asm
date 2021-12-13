@@ -36,8 +36,8 @@ serial_init     ldi     high(interrupt)         ; Initialise Interrupt handler (
                 ori     $80                     ; RTS on and lock config
                 str     r2
                 out     UART
-                req
                 dec     r2
+                req
 
                 ldi     high(serial_tail)       ; Set serial_head and serial_tail
                 phi     rf                      ; to make the buffer empty
