@@ -5,8 +5,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine scal
+;; Standard Call
+;;
+;; Destroys RF.0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine scal
                 sep     r3
 scal            plo     rf
                 glo     r6                      ; Standard Call
@@ -25,8 +28,11 @@ scal            plo     rf
                 br      scal-1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine sret
+;; Standard Return
+;;
+;; Destroys RF.0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine sret
                 sep     r3
 sret            plo     rf
                 glo     r6                      ; Standard Return

@@ -20,6 +20,8 @@ BIOS_SerialWriteStringImmediate equ     $FFE2
 
 BIOS_IDEIdentityString          equ     $FFDF
 BIOS_IDESectorCount             equ     $FFDC
+BIOS_IDEReadSector              equ     $FFD9
+BIOS_IDEWriteSector             equ     $FFD6
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Standard CALL
@@ -111,6 +113,16 @@ BIOS_IDESectorCount macro
                 dw      BIOS_IDESectorCount
                 endm
 
+BIOS_IDEReadSector  macro
+                sep     r4
+                dw      BIOS_IDEReadSector
+                endm
+
+BIOS_IDEWriteSector macro
+                sep     r4
+                dw      BIOS_IDEWriteSector
+                endm
+
                 endif
 
                 if CPU(1804) || CPU(1805) || CPU(1806)
@@ -174,6 +186,14 @@ BIOS_IDEIdentityString  macro
 
 BIOS_IDESectorCount macro
                 scal    r6, BIOS_IDESectorCount
+                endm
+
+BIOS_IDEReadSector  macro
+                scal    r6, BIOS_IDEReadSector
+                endm
+
+BIOS_IDEWriteSector macro
+                scal    r6, BIOS_IDEWriteSector
                 endm
 
                 endif

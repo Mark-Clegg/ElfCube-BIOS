@@ -80,6 +80,94 @@ ide_waitready   ldi     IDE_Reg_Status_Command
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_checksectorvalid
+;;
+;; Internal routine, check that the sector number
+;; pointed to by RD is in range
+;; Returns DF=1 - Sector OK, DF=0 - Out of Range
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_checksectorvalid
+ide_checksectorvalid
+                ldi     high(IDE_SectorCount + 3)
+                phi     rc
+                ldi     low(IDE_SectorCount + 3)
+                plo     rc
+                inc     rd
+                inc     rd
+                inc     rd
+
+                sex     rd                      ; Check the sector is in range
+                ldn     rc
+                sm
+                dec     rc
+                dec     rd
+                ldn     rc
+                smb
+                dec     rc
+                dec     rd
+                ldn     rc
+                smb
+                dec     rc
+                dec     rd
+                ldn     rc
+                smb
+                ldi     $ff                     ; Setup error value for if DF = 0 on return
+                plo     rf
+                sex     r2
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_setupreadwritecommand
+;;
+;; Setup the IDE registers with the 32 bit LBA address
+;; pointed to by RD, and the command in D
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_setupreadwritecommand
+ide_setupreadwritecommand                       ; Load LBA Address to drive registers
+                lda     r6                      ; and send Read/Write Sector command
+                stxd
+                ldi     IDE_Reg_Status_Command
+                stxd
+                ldi     1
+                stxd
+                ldi     IDE_Reg_SectorCount
+                stxd
+                lda     rd
+                ori     $e0
+                stxd
+                ldi     IDE_Reg_HeadDevice
+                stxd
+                lda     rd
+                stxd
+                ldi     IDE_Reg_CylinderHigh
+                stxd
+                lda     rd
+                stxd
+                ldi     IDE_Reg_CylinderLow
+                stxd
+                lda     rd
+                stxd
+                ldi     IDE_Reg_StartSector
+                str     r2
+                out     IDE_Address
+                out     IDE_Data
+                out     IDE_Address
+                out     IDE_Data
+                out     IDE_Address
+                out     IDE_Data
+                out     IDE_Address
+                out     IDE_Data
+                out     IDE_Address
+                out     IDE_Data
+                out     IDE_Address
+                out     IDE_Data
+                dec     r2
+                dec     rd
+                dec     rd
+                dec     rd
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_init
 ;;
 ;; Initialise the IDE chipset
@@ -117,9 +205,9 @@ ide_init        call    ide_waitReady
                 out     IDE_Data
                 dec     r2
 
-.waitready      inp     IDE_Data                    ; Command / Status Register is already selected
+.waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
                 ani     IDE_SR_DRQ                  ; Read Status and wait for Data Request Ready
-                bz      .waitready
+                bz      .waitDRQ
 
                 ldi     IDE_Reg_Data                ; Select Data Register
                 str     r2
@@ -149,7 +237,7 @@ ide_init        call    ide_waitReady
                 inc     rf
                 dec     re
                 glo     re
-                lbnz    .readModel
+                bnz    .readModel
                 ldi     $0                          ; Zero Terminate the string
                 str     rf
 
@@ -223,3 +311,114 @@ ide_sector_count
                 ldi     low(IDE_SectorCount)
                 plo     re
                 return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_read_sector
+;;
+;; read a sector from the drive
+;; RE points to the address to read the sector into
+;; RD points to a 32 bit sector number
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine  ide_read_sector
+ide_read_sector glo     rc                      ; Save RC
+                stxd
+                ghi     rc
+                stxd
+
+                call    ide_checksectorvalid
+                bnf     ide_fail_return
+
+                call    ide_waitready           ; Wait for drive to be ready
+                call    ide_setupreadwritecommand ; and send Read/Write Sector command
+                db      IDE_Cmd_ReadSector
+
+.waitDRQ        inp     IDE_Data                ; Wait for Data Ready
+                ani     IDE_SR_DRQ
+                bz      .waitDRQ
+
+                ldi     IDE_Reg_Data            ; Select Data Register
+                str     r2
+                out     IDE_Address
+                dec     r2
+
+                ldi     $80
+                plo     rf
+
+                sex     re
+.readData       inp     IDE_Data                ; Read sector (4 bytes at a time)
+                inc     re
+                inp     IDE_Data
+                inc     re
+                inp     IDE_Data
+                inc     re
+                inp     IDE_Data
+                inc     re
+                dec     rf
+                glo     rf
+                bnz     .readData
+
+
+ide_rw_return   sex     r2
+                call    ide_waitready           ; Wait for drive to be ready
+
+                ghi     re                      ; Return RE to start of data
+                smi     $02
+                phi     re
+
+                ldi     IDE_Reg_Error_Feature   ; return the IDE Error Register
+                str     r2
+                out     IDE_Address
+                dec     r2
+                inp     IDE_Data
+                plo     rf
+ide_fail_return irx
+                ldxa
+                phi     rc
+                ldn     r2
+                plo     rc
+                glo     rf
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_write_sector
+;;
+;; read a sector from the drive
+;; RE points to the address to write the sector from
+;; RD points to a 32 bit sector number
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine  ide_write_sector
+ide_write_sector
+                glo     rc                      ; Save RC
+                stxd
+                ghi     rc
+                stxd
+
+                call    ide_checksectorvalid
+                bnf     ide_fail_return
+
+                call    ide_waitready           ; Wait for drive to be ready
+                call    ide_setupreadwritecommand ; Load LBA Address to drive registers
+                db      IDE_Cmd_WriteSector
+
+.waitDRQ        inp     IDE_Data                ; Wait for Data Ready
+                ani     IDE_SR_DRQ
+                bz      .waitDRQ
+
+                ldi     IDE_Reg_Data            ; Select Data Register
+                str     r2
+                out     IDE_Address
+                dec     r2
+
+                ldi     $80
+                plo     rf
+
+                sex     re
+.writeData      out     IDE_Data                ; Write sector (4 bytes at a time)
+                out     IDE_Data
+                out     IDE_Data
+                out     IDE_Data
+                dec     rf
+                glo     rf
+                bnz     .writeData
+
+                lbr     ide_rw_return

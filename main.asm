@@ -135,6 +135,8 @@ vector_start    dw      reset       ; $FFFD = Reset
                 dw      serial_write_string_immediate
                 dw      ide_identity_string
                 dw      ide_sector_count
+                dw      ide_read_sector
+                dw      ide_write_sector
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
@@ -143,70 +145,73 @@ vector_count    equ (vector_end - vector_start) / 2
 
                 align   $100
 
-start           ghi     r2
-                BIOS_SerialWriteHex
-                glo     r2
-                BIOS_SerialWriteHex
-                BIOS_SerialWriteStringImmediate "\r\n"
+Sector0         db      0,0,0,0         ; Test Sector Numbers
+Sector1         db      0,0,0,1
+Sector2         db      0,0,0,2
 
-.loop           BIOS_SerialRead
-                str     r2
-                smi     'x'
-                bz      .exit
-                ldn     r2
-                BIOS_SerialWrite
-                BIOS_SerialWriteImmediate '-'
-                ghi     r2
-                BIOS_SerialWriteHex
-                glo     r2
-                BIOS_SerialWriteHex
-                BIOS_SerialWRiteImmediate '-'
-                BIOS_SerialCount
-                BIOS_SerialWriteHex
-                BIOS_SerialWriteStringImmediate '\r\n'
-
-                br      .loop
-
-.exit           BIOS_SerialWriteStringImmediate "\r\nDone\r\n"
-                BIOS_SerialWriteStringAt .string
-
+start           BIOS_SerialWriteStringImmediate "Stack: "
                 ghi     r2
                 BIOS_SerialWriteHex
                 glo     r2
                 BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate "\r\n"
 
+                BIOS_SerialWriteStringImmediate "Read Sector to $C000\r\n"
+
+                ldi     high(Sector0)
+                phi     rd
+                ldi     low(Sector0)
+                plo     rd
+
+                ldi     $C0
+                phi     re
+                ldi     $00
+                plo     re
+
+                BIOS_IDEReadSector
+
+                plo     r7
+                BIOS_SerialWriteStringImmediate "Result: "
+                glo     r7
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate "\r\n"
+
+                BIOS_SerialWriteStringImmediate "Stack: "
                 ghi     r2
                 BIOS_SerialWriteHex
                 glo     r2
                 BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate "\r\n"
 
-                BIOS_IDEIdentityString
-                BIOS_SerialWriteString
-                BIOS_SerialWriteStringImmediate "<\r\n"
+                BIOS_SerialWriteStringImmediate "Write Sector from $C000\r\n"
 
-                BIOS_SerialWriteStringImmediate "Number of Sectors: "
+                ldi     high(Sector0)
+                phi     rd
+                ldi     low(Sector0)
+                plo     rd
 
-                BIOS_IDESectorCount
-                lda     re
-                BIOS_SerialWriteHex
-                lda     re
-                BIOS_SerialWriteHex
-                lda     re
-                BIOS_SerialWriteHex
-                lda     re
-                BIOS_SerialWriteHex
+                ldi     $C0
+                phi     re
+                ldi     $00
+                plo     re
 
+                BIOS_IDEWriteSector
+
+                plo     r7
+                BIOS_SerialWriteStringImmediate "Result: "
+                glo     r7
+                BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate "\r\n"
+
+                BIOS_SerialWriteStringImmediate "Stack: "
                 ghi     r2
                 BIOS_SerialWriteHex
                 glo     r2
                 BIOS_SerialWriteHex
-
                 BIOS_SerialWriteStringImmediate "\r\n"
 
-                BIOS_Reset
+                BIOS_SerialWriteStringImmediate "\r\nPress Enter to return to Idiot/4\r\n"
 
-.string         db      "\r\nPress Enter to return to Idiot/4\r\n",0
+exit            BIOS_Reset
+
                 end
