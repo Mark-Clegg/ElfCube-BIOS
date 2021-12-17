@@ -145,7 +145,7 @@ ide_setupreadwritecommand                       ; Load LBA Address to drive regi
                 stxd
                 ldi     IDE_Reg_CylinderLow
                 stxd
-                lda     rd
+                ldn     rd
                 stxd
                 ldi     IDE_Reg_StartSector
                 str     r2
@@ -316,7 +316,7 @@ ide_sector_count
 ;; ide_read_sector
 ;;
 ;; read a sector from the drive
-;; RE points to the address to read the sector into
+;; RE points to the memory block to read the sector into
 ;; RD points to a 32 bit sector number
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_read_sector
@@ -383,7 +383,7 @@ ide_fail_return irx
 ;; ide_write_sector
 ;;
 ;; read a sector from the drive
-;; RE points to the address to write the sector from
+;; RE points to the memory block to write the sector from
 ;; RD points to a 32 bit sector number
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_write_sector
