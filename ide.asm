@@ -67,16 +67,44 @@ IDE_SectorCount ds      4            ; 32 bit integer
 ;; ide_waitready
 ;;
 ;; Wait for the IDE chipset to be READY
+;;
+;; Returns:
+;; DF=0 - Success, D=IDE Status Register
+;; DF=1 - Error, D=IDE Error Register
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine ide_waitready
-ide_waitready   ldi     IDE_Reg_Status_Command
-                str     r2
+ide_waitready   sex     r3                      ; Select Status Register
                 out     IDE_Address
-                dec     r2
-.wait           inp     IDE_Data
+                db      IDE_Reg_Status_Command
+                sex     r2
+
+                ldi     $0                      ; Setup timeout counter
+                plo     rf
+                phi     rf
+
+.wait           dec     rf                      ; Decrement timeout loop
+                glo     rf
+                bnz     .testFlags
+                ghi     rf
+                bnz     .testFlags
+
+.ideError       sex     r3                      ; Return Error Register with DF=1
+                out     IDE_Address
+                db      IDE_Reg_Error_Feature
+                sex     r2
+                inp     IDE_Data
+                smi     $00
+                return
+
+.testFlags      inp     IDE_Data                ; Read Status Register
+                shr                             ; Check Error Flag
+                bdf     .ideError
+                shlc
                 ani     IDE_SR_DRDY | IDE_SR_BSY
                 smi     IDE_SR_DRDY
                 bnz     .wait
+                ldn     r2                      ; Return Status Register with DF=0
+                adi     $00
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -84,56 +112,74 @@ ide_waitready   ldi     IDE_Reg_Status_Command
 ;;
 ;; Internal routine, check that the sector number
 ;; pointed to by RD is in range
-;; Returns DF=1 - Sector OK, DF=0 - Out of Range
+;;
+;; Parameters
+;; RD:      Pointer to 32 bit LBA Address
+;;
+;; Returns
+;; DF=0 - Sector OK
+;; DF=1 - Sector Number Out of Range
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine ide_checksectorvalid
 ide_checksectorvalid
                 ldi     high(IDE_SectorCount + 3)
-                phi     rc
+                phi     rf
                 ldi     low(IDE_SectorCount + 3)
-                plo     rc
+                plo     rf
                 inc     rd
                 inc     rd
                 inc     rd
 
                 sex     rd                      ; Check the sector is in range
-                ldn     rc
-                sm
-                dec     rc
+                ldn     rf
+                sd
+                dec     rf
                 dec     rd
-                ldn     rc
-                smb
-                dec     rc
+                ldn     rf
+                sdb
+                dec     rf
                 dec     rd
-                ldn     rc
-                smb
-                dec     rc
+                ldn     rf
+                sdb
+                dec     rf
                 dec     rd
-                ldn     rc
-                smb
-                ldi     $ff                     ; Setup error value for if DF = 0 on return
-                plo     rf
+                ldn     rf
+                sdb
                 sex     r2
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_setupreadwritecommand
+;; ide_sendcommand
 ;;
-;; Setup the IDE registers with the 32 bit LBA address
-;; pointed to by RD, and the command in D
+;; Send a Read or Write command to the IDE Controller
+;;
+;; Parameters
+;; Immediate: Command ($20 Read, $30 Write)
+;; RD:        Address of a 28 bit LBA Address
+;; RC.0:      Number of sectors
+;; RC.1:      Drive, 0 = Master, 1 = Slave
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_setupreadwritecommand
-ide_setupreadwritecommand                       ; Load LBA Address to drive registers
+                subroutine ide_sendcommand
+ide_sendcommand                                 ; Load LBA Address to drive registers
                 lda     r6                      ; and send Read/Write Sector command
                 stxd
                 ldi     IDE_Reg_Status_Command
                 stxd
-                ldi     1
+                glo     rc                      ; Sector Count
                 stxd
                 ldi     IDE_Reg_SectorCount
                 stxd
+                ghi     rc                      ; Select LBA Mode ($e0)
+                ani     $01                     ; Drive Number (RC.1 = 0 or 1)
+                shl                             ; High LBA Byte (LSB 4 bits)
+                shl                             ; into HeadDevice Register
+                shl
+                shl
+                str     r2
                 lda     rd
+                ani     $0f
                 ori     $e0
+                or
                 stxd
                 ldi     IDE_Reg_HeadDevice
                 stxd
@@ -149,22 +195,30 @@ ide_setupreadwritecommand                       ; Load LBA Address to drive regi
                 stxd
                 ldi     IDE_Reg_StartSector
                 str     r2
-                out     IDE_Address
+                ldi     $06
+.regSetupLoop   out     IDE_Address
                 out     IDE_Data
-                out     IDE_Address
-                out     IDE_Data
-                out     IDE_Address
-                out     IDE_Data
-                out     IDE_Address
-                out     IDE_Data
-                out     IDE_Address
-                out     IDE_Data
-                out     IDE_Address
-                out     IDE_Data
+                smi     $01
+                bnz     .regSetupLoop
                 dec     r2
                 dec     rd
                 dec     rd
                 dec     rd
+
+.waitDRQ        inp     IDE_Data                ; Wait for Data Ready
+                shr
+                bdf     .ideerror
+                shlc
+                ani     IDE_SR_DRQ
+                bz      .waitDRQ
+                return                          ; Return with DF = 0
+
+.ideerror       sex     r3                      ; Return Error Register
+                out     IDE_Address             ; and set DF = 1
+                db      $01
+                sex     r2
+                inp     IDE_Data
+                smi     $00
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -206,8 +260,9 @@ ide_init        call    ide_waitReady
                 dec     r2
 
 .waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
-                ani     IDE_SR_DRQ                  ; Read Status and wait for Data Request Ready
-                bz      .waitDRQ
+                ani     IDE_SR_BSY | IDE_SR_DRQ     ; Read Status and wait for Data Request Ready
+                smi     IDE_SR_DRQ
+                bnz     .waitDRQ
 
                 ldi     IDE_Reg_Data                ; Select Data Register
                 str     r2
@@ -287,8 +342,8 @@ ide_init        call    ide_waitReady
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_identity_string
 ;;
-;; Returns the address of the ASCIIZ IDE Model String
-;; in RE
+;; Returns
+;; RE: Address of the ASCIIZ IDE Model String
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine ide_identity_string
 ide_identity_string
@@ -301,8 +356,8 @@ ide_identity_string
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_sector_count
 ;;
-;; returns the address of the IDE Sector Count DWORD
-;; in RE
+;; Returns
+;; RE: Address of the IDE Sector Count DWORD
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine ide_sector_count
 ide_sector_count
@@ -315,31 +370,29 @@ ide_sector_count
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_read_sector
 ;;
-;; read a sector from the drive
-;; RE points to the memory block to read the sector into
-;; RD points to a 32 bit sector number
+;; Read sectors from the drive
+;;
+;; Parameters
+;; RE:      Pointer to memory block to read the sector into
+;; RD:      Pointer to 28 bit sector number
+;; RC.0     Number of sectors to read
+;; RC.1     Drive 0 = Master, 1 = Slave
+;;
+;; Returns
+;; DF=0:    OK
+;; DF=1:    D = IDE Error Register
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_read_sector
-ide_read_sector glo     rc                      ; Save RC
-                stxd
-                ghi     rc
-                stxd
-
-                call    ide_checksectorvalid
-                bnf     ide_fail_return
+ide_read_sector call    ide_checksectorvalid
+                lbdf     ide_fail_return
 
                 call    ide_waitready           ; Wait for drive to be ready
-                call    ide_setupreadwritecommand ; and send Read/Write Sector command
+                call    ide_sendcommand         ; and send Read/Write Sector command
                 db      IDE_Cmd_ReadSector
 
-.waitDRQ        inp     IDE_Data                ; Wait for Data Ready
-                ani     IDE_SR_DRQ
-                bz      .waitDRQ
-
-                ldi     IDE_Reg_Data            ; Select Data Register
-                str     r2
+                sex     r3                      ; Select Data Register
                 out     IDE_Address
-                dec     r2
+                db      IDE_Reg_Data
 
                 ldi     $80
                 plo     rf
@@ -357,7 +410,6 @@ ide_read_sector glo     rc                      ; Save RC
                 glo     rf
                 bnz     .readData
 
-
 ide_rw_return   sex     r2
                 call    ide_waitready           ; Wait for drive to be ready
 
@@ -365,49 +417,40 @@ ide_rw_return   sex     r2
                 smi     $02
                 phi     re
 
-                ldi     IDE_Reg_Error_Feature   ; return the IDE Error Register
-                str     r2
+                sex     r3                      ; return the IDE Error Register
                 out     IDE_Address
-                dec     r2
+                db      IDE_Reg_Error_Feature
+                sex     r2
                 inp     IDE_Data
-                plo     rf
-ide_fail_return irx
-                ldxa
-                phi     rc
-                ldn     r2
-                plo     rc
-                glo     rf
-                return
+ide_fail_return return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_write_sector
 ;;
-;; read a sector from the drive
-;; RE points to the memory block to write the sector from
-;; RD points to a 32 bit sector number
+;; Write sectors to the drive
+;;
+;; Parameters
+;; RE:      Pointer to memory block to read the sector into
+;; RD:      Pointer to 28 bit sector number
+;; RC.0     Number of sectors to read
+;; RC.1     Drive 0 = Master, 1 = Slave
+;;
+;; Returns
+;; DF=0:    OK
+;; DF=1:    D = IDE Error Register
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_write_sector
 ide_write_sector
-                glo     rc                      ; Save RC
-                stxd
-                ghi     rc
-                stxd
-
                 call    ide_checksectorvalid
-                bnf     ide_fail_return
+                bdf     ide_fail_return
 
                 call    ide_waitready           ; Wait for drive to be ready
-                call    ide_setupreadwritecommand ; Load LBA Address to drive registers
+                call    ide_sendcommand         ; Load LBA Address to drive registers
                 db      IDE_Cmd_WriteSector
 
-.waitDRQ        inp     IDE_Data                ; Wait for Data Ready
-                ani     IDE_SR_DRQ
-                bz      .waitDRQ
-
-                ldi     IDE_Reg_Data            ; Select Data Register
-                str     r2
+                sex     r3                      ; Select Data Register
                 out     IDE_Address
-                dec     r2
+                db      IDE_Reg_Data
 
                 ldi     $80
                 plo     rf

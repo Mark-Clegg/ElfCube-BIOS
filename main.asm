@@ -154,19 +154,31 @@ start           BIOS_SerialWriteStringImmediate "Stack: "
                 BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate "\r\n"
 
-                ldi     $00
-                plo     r7                      ; Value to initialise sector / sector number
-                ldi     $00
-                plo     r8                      ; Loop counter
+Command         BIOS_SerialWriteStringImmediate "(R)ead or (W)rite a Sector, or return to (I)diot Monitor\r\n"
+                BIOS_SerialRead
+                smi     'I'
+                bz      GoToBIOS
+                smi     'R'-'I'
+                bz      ReadTest
+                smi     'W'-'R'
+                bz      WriteTest
+                br      Command
 
-nextsector      ldi     $91
+GoToBIOS        BIOS_SerialWriteStringImmediate "Press <Enter> to re-start\r\n"
+                BIOS_Reset
+
+WriteTest       ldi     $22
+                plo     r7                      ; Value to initialise sector / sector number
+
+                ldi     $00
+                plo     r8
+                ldi     $91
                 phi     r9
                 ldi     $ff
                 plo     r9
                 sex     r9
 
 fillbuffer      glo     r7                      ; Write 512 bytes of R7.0
-                xri     $ff
                 stxd
                 stxd
                 dec     r8
@@ -176,57 +188,50 @@ fillbuffer      glo     r7                      ; Write 512 bytes of R7.0
                 stxd
 
                 sex     r2
-                BIOS_SerialWriteStringImmediate "Write Sector from $9000 - "
-                glo     r7
+                BIOS_SerialWriteStringImmediate "Write Sector from data at $9000 - "
+
+                ldi     high(Sector)
+                phi     rd
+                ldi     low(Sector)
+                plo     rd
+
+                ldi     $90
+                phi     re
+                ldi     $00
+                plo     re
+
+                ldi     $01
+                plo     rc
+                ldi     $00
+                phi     rc
+
+                BIOS_IDEWriteSector
                 BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate "\r\n"
 
-                ldi     high(Sector+3)
-                phi     rd
-                ldi     low(Sector+3)
-                plo     rd
-                glo     r7
-                str     rd
-                dec     rd
-                dec     rd
-                dec     rd
+                br      start
 
-                ldi     $90
+ReadTest        BIOS_SerialWriteStringImmediate "Read Sector to $A000 - "
+
+                ldi     high(Sector)
+                phi     rd
+                ldi     low(Sector)
+                plo     rd
+
+                ldi     $a0
                 phi     re
                 ldi     $00
                 plo     re
 
-                BIOS_IDEWriteSector
-
-                inc     r7
-                glo     r7
-                bnz     nextsector
-
-                BIOS_SerialWriteStringImmediate "Written 256 Sectors\r\n"
-
-                ldi     high(Sector+3)
-                phi     rd
-                ldi     low(Sector+3)
-                plo     rd
-                ldi     $22
-                str     rd
-                dec     rd
-                dec     rd
-                dec     rd
-
-                ldi     $90
-                phi     re
+                ldi     $01
+                plo     rc
                 ldi     $00
-                plo     re
+                phi     rc
 
                 BIOS_IDEReadSector
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate "\r\n"
 
-                BIOS_SerialWriteStringImmediate "Read Sector to $9000\r\n"
-
-
-                BIOS_SerialWriteStringImmediate "Press Enter to return to Idiot/4\r\n"
-
-exit            BIOS_Reset
-
+                lbr     start
 
                 end
