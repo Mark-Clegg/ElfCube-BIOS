@@ -101,10 +101,9 @@ ide_waitready   sex     r3                      ; Select Status Register
                 bdf     .ideError
                 shlc
                 ani     IDE_SR_DRDY | IDE_SR_BSY
-                smi     IDE_SR_DRDY
+                xri     IDE_SR_DRDY
                 bnz     .wait
                 ldn     r2                      ; Return Status Register with DF=0
-                adi     $00
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,22 +129,23 @@ ide_checksectorvalid
                 inc     rd
                 inc     rd
 
-                sex     rd                      ; Check the sector is in range
-                ldn     rf
-                sd
-                dec     rf
+                sex     rf                      ; Check the sector is in range M(R(D)) - M(R(F))
+                ldn     rd
+                sm
                 dec     rd
-                ldn     rf
-                sdb
                 dec     rf
+                ldn     rd
+                smb
                 dec     rd
-                ldn     rf
-                sdb
                 dec     rf
+                ldn     rd
+                smb
                 dec     rd
-                ldn     rf
-                sdb
+                dec     rf
+                ldn     rd
+                smb
                 sex     r2
+                ldi     $00
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -154,15 +154,14 @@ ide_checksectorvalid
 ;; Send a Read or Write command to the IDE Controller
 ;;
 ;; Parameters
-;; Immediate: Command ($20 Read, $30 Write)
-;; RD:        Address of a 28 bit LBA Address
-;; RC.0:      Number of sectors
-;; RC.1:      Drive, 0 = Master, 1 = Slave
+;; D:       Command ($20 Read, $30 Write)
+;; RD:      Address of a 28 bit LBA Address
+;; RC.0:    Number of sectors
+;; RC.1:    Drive, 0 = Master, 1 = Slave
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine ide_sendcommand
 ide_sendcommand                                 ; Load LBA Address to drive registers
-                lda     r6                      ; and send Read/Write Sector command
-                stxd
+                stxd                            ; and send Read/Write Sector command
                 ldi     IDE_Reg_Status_Command
                 stxd
                 glo     rc                      ; Sector Count
@@ -171,7 +170,7 @@ ide_sendcommand                                 ; Load LBA Address to drive regi
                 stxd
                 ghi     rc                      ; Select LBA Mode ($e0)
                 ani     $01                     ; Drive Number (RC.1 = 0 or 1)
-                shl                             ; High LBA Byte (LSB 4 bits)
+                shl                             ; High LBA Byte (LS 4 bits)
                 shl                             ; into HeadDevice Register
                 shl
                 shl
@@ -215,7 +214,7 @@ ide_sendcommand                                 ; Load LBA Address to drive regi
 
 .ideerror       sex     r3                      ; Return Error Register
                 out     IDE_Address             ; and set DF = 1
-                db      $01
+                db      IDE_Reg_Error_Feature
                 sex     r2
                 inp     IDE_Data
                 smi     $00
@@ -229,35 +228,30 @@ ide_sendcommand                                 ; Load LBA Address to drive regi
                 subroutine ide_init
 ide_init        call    ide_waitReady
 
-                ldi     IDE_Cmd_SetFeatures         ; Send Set Features Command
-                stxd
-                ldi     IDE_Reg_Status_Command      ; Select Command Status Register
-                stxd
-                ldi     IDE_Feature_8Bit            ; Set 8 bit mode
-                stxd
-                ldi     IDE_Reg_Error_Feature       ; Select Feature Register
-                stxd
-                ldi     IDE_HeadDevice_SectorMode   ; Select LBA Mode
-                stxd
-                ldi     IDE_Reg_HeadDevice          ; Select Head Device Register
-                str     r2
+                sex     r3
                 out     IDE_Address
+                db      IDE_Reg_HeadDevice
                 out     IDE_Data
+                db      IDE_HeadDevice_SectorMode
                 out     IDE_Address
+                db      IDE_Reg_Error_Feature
                 out     IDE_Data
+                db      IDE_Feature_8Bit
                 out     IDE_Address
+                db      IDE_Reg_Status_Command
                 out     IDE_Data
-                dec     r2
+                db      IDE_Cmd_SetFeatures
+                sex     r2
 
                 call    ide_waitReady
 
-                ldi     IDE_Cmd_Identify            ; Send Identify Command
-                stxd
-                ldi     IDE_Reg_Status_Command      ; Select Command Status Register
-                str     r2
+                sex     r3                          ; Send Identify Command
                 out     IDE_Address
+                db      IDE_Reg_Status_Command
                 out     IDE_Data
-                dec     r2
+                db      IDE_Cmd_Identify
+                sex     r2
+
 
 .waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
                 ani     IDE_SR_BSY | IDE_SR_DRQ     ; Read Status and wait for Data Request Ready
@@ -340,34 +334,6 @@ ide_init        call    ide_waitReady
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_identity_string
-;;
-;; Returns
-;; RE: Address of the ASCIIZ IDE Model String
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_identity_string
-ide_identity_string
-                ldi     high(IDE_Model)
-                phi     re
-                ldi     low(IDE_Model)
-                plo     re
-                return
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_sector_count
-;;
-;; Returns
-;; RE: Address of the IDE Sector Count DWORD
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_sector_count
-ide_sector_count
-                ldi     high(IDE_SectorCount)
-                phi     re
-                ldi     low(IDE_SectorCount)
-                plo     re
-                return
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_read_sector
 ;;
 ;; Read sectors from the drive
@@ -384,11 +350,14 @@ ide_sector_count
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_read_sector
 ide_read_sector call    ide_checksectorvalid
-                lbdf     ide_fail_return
+                bdf     .ide_return
 
                 call    ide_waitready           ; Wait for drive to be ready
+                bdf     .ide_return
+
+                ldi     IDE_Cmd_ReadSector
                 call    ide_sendcommand         ; and send Read/Write Sector command
-                db      IDE_Cmd_ReadSector
+                bdf     .ide_return
 
                 sex     r3                      ; Select Data Register
                 out     IDE_Address
@@ -410,19 +379,12 @@ ide_read_sector call    ide_checksectorvalid
                 glo     rf
                 bnz     .readData
 
-ide_rw_return   sex     r2
-                call    ide_waitready           ; Wait for drive to be ready
-
                 ghi     re                      ; Return RE to start of data
                 smi     $02
                 phi     re
-
-                sex     r3                      ; return the IDE Error Register
-                out     IDE_Address
-                db      IDE_Reg_Error_Feature
                 sex     r2
-                inp     IDE_Data
-ide_fail_return return
+                call    ide_waitready           ; Wait for drive to be ready
+.ide_return     return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_write_sector
@@ -442,11 +404,14 @@ ide_fail_return return
                 subroutine  ide_write_sector
 ide_write_sector
                 call    ide_checksectorvalid
-                bdf     ide_fail_return
+                lbdf     .ide_return
 
                 call    ide_waitready           ; Wait for drive to be ready
+                lbdf     .ide_return
+
+                ldi     IDE_Cmd_WriteSector
                 call    ide_sendcommand         ; Load LBA Address to drive registers
-                db      IDE_Cmd_WriteSector
+                lbdf     .ide_return
 
                 sex     r3                      ; Select Data Register
                 out     IDE_Address
@@ -464,4 +429,37 @@ ide_write_sector
                 glo     rf
                 bnz     .writeData
 
-                lbr     ide_rw_return
+                ghi     re                      ; Return RE to start of data
+                smi     $02
+                phi     re
+                sex     r2
+                call    ide_waitready           ; Wait for drive to be ready
+.ide_return     return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_sector_count
+;;
+;; Returns
+;; RE: Address of the IDE Sector Count DWORD
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_sector_count
+ide_sector_count
+                ldi     high(IDE_SectorCount)
+                phi     re
+                ldi     low(IDE_SectorCount)
+                plo     re
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_identity_string
+;;
+;; Returns
+;; RE: Address of the ASCIIZ IDE Model String
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_identity_string
+ide_identity_string
+                ldi     high(IDE_Model)
+                phi     re
+                ldi     low(IDE_Model)
+                plo     re
+                return

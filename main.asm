@@ -147,7 +147,25 @@ vector_count    equ (vector_end - vector_start) / 2
 
 Sector          db      0,0,0,0         ; Test Sector Numbers
 
-start           BIOS_SerialWriteStringImmediate "Stack: "
+start           BIOS_SerialWriteStringImmediate "\r\n"
+                BIOS_SerialWriteStringImmediate "Drive Model: "
+                BIOS_IDEIdentityString
+                BIOS_SerialWriteString
+                BIOS_SerialWriteStringImmediate "\r\n"
+
+                BIOS_SerialWriteStringImmediate "Sectors:     "
+                BIOS_IDESectorCount
+                lda     re
+                BIOS_SerialWriteHex
+                lda     re
+                BIOS_SerialWriteHex
+                lda     re
+                BIOS_SerialWriteHex
+                lda     re
+                BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate "\r\n"
+
+                BIOS_SerialWriteStringImmediate "Stack: "
                 ghi     r2
                 BIOS_SerialWriteHex
                 glo     r2
@@ -159,7 +177,7 @@ Command         BIOS_SerialWriteStringImmediate "(R)ead or (W)rite a Sector, or 
                 smi     'I'
                 bz      GoToBIOS
                 smi     'R'-'I'
-                bz      ReadTest
+                lbz     ReadTest
                 smi     'W'-'R'
                 bz      WriteTest
                 br      Command
@@ -206,10 +224,15 @@ fillbuffer      glo     r7                      ; Write 512 bytes of R7.0
                 phi     rc
 
                 BIOS_IDEWriteSector
-                BIOS_SerialWriteHex
-                BIOS_SerialWriteStringImmediate "\r\n"
+                bdf     Failed
 
-                br      start
+Succeeded       BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate " OK\r\n"
+                lbr     start
+
+Failed          BIOS_SerialWriteHex
+                BIOS_SerialWriteStringImmediate " Error\r\n"
+                lbr     start
 
 ReadTest        BIOS_SerialWriteStringImmediate "Read Sector to $A000 - "
 
@@ -229,9 +252,7 @@ ReadTest        BIOS_SerialWriteStringImmediate "Read Sector to $A000 - "
                 phi     rc
 
                 BIOS_IDEReadSector
-                BIOS_SerialWriteHex
-                BIOS_SerialWriteStringImmediate "\r\n"
-
-                lbr     start
+                lbdf    Failed
+                lbr     Succeeded
 
                 end
