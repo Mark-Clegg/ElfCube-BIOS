@@ -350,20 +350,23 @@ ide_init        call    ide_waitReady
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_read_sector
 ide_read_sector call    ide_checksectorvalid
-                bdf     .ide_return
+                bdf     ide_return
 
                 call    ide_waitready           ; Wait for drive to be ready
-                bdf     .ide_return
+                bdf     ide_return
 
                 ldi     IDE_Cmd_ReadSector
                 call    ide_sendcommand         ; and send Read/Write Sector command
-                bdf     .ide_return
+                bdf     ide_return
 
                 sex     r3                      ; Select Data Register
                 out     IDE_Address
                 db      IDE_Reg_Data
 
-                ldi     $80
+                glo     rc
+                str     r2
+
+.sectorLoop     ldi     $80
                 plo     rf
 
                 sex     re
@@ -379,12 +382,27 @@ ide_read_sector call    ide_checksectorvalid
                 glo     rf
                 bnz     .readData
 
-                ghi     re                      ; Return RE to start of data
+                dec     rc
+                glo     rc
+                bnz     .sectorLoop
+
+ide_rw_return   ldn     r2
+                plo     rc
+
+.resetLoop      ghi     re                      ; Return RE to start of data
                 smi     $02
                 phi     re
+
+                dec     rc
+                glo     rc
+                bnz     .resetLoop
+                ldn     r2
+                plo     rc
+
                 sex     r2
                 call    ide_waitready           ; Wait for drive to be ready
-.ide_return     return
+ide_return      return
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_write_sector
@@ -404,20 +422,23 @@ ide_read_sector call    ide_checksectorvalid
                 subroutine  ide_write_sector
 ide_write_sector
                 call    ide_checksectorvalid
-                lbdf     .ide_return
+                lbdf    ide_return
 
                 call    ide_waitready           ; Wait for drive to be ready
-                lbdf     .ide_return
+                lbdf    ide_return
 
                 ldi     IDE_Cmd_WriteSector
                 call    ide_sendcommand         ; Load LBA Address to drive registers
-                lbdf     .ide_return
+                lbdf    ide_return
 
                 sex     r3                      ; Select Data Register
                 out     IDE_Address
                 db      IDE_Reg_Data
 
-                ldi     $80
+                glo     rc
+                str     r2
+
+.sectorLoop     ldi     $80
                 plo     rf
 
                 sex     re
@@ -429,12 +450,11 @@ ide_write_sector
                 glo     rf
                 bnz     .writeData
 
-                ghi     re                      ; Return RE to start of data
-                smi     $02
-                phi     re
-                sex     r2
-                call    ide_waitready           ; Wait for drive to be ready
-.ide_return     return
+                dec     rc
+                glo     rc
+                bnz     .sectorLoop
+
+                lbr     ide_rw_return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_sector_count

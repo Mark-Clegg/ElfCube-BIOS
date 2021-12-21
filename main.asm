@@ -246,7 +246,7 @@ ReadTest        BIOS_SerialWriteStringImmediate "Read Sector to $A000 - "
                 ldi     $00
                 plo     re
 
-                ldi     $01
+                ldi     $04
                 plo     rc
                 ldi     $00
                 phi     rc
