@@ -9,10 +9,10 @@
 IDE_Reg_Data               equ $00   ; Data          Data
 IDE_Reg_Error_Feature      equ $01   ; Error         Feature
 IDE_Reg_SectorCount        equ $02   ; -             Sector Count
-IDE_Reg_StartSector        equ $03   ; -             Start Sector
-IDE_Reg_CylinderLow        equ $04   ; -             Cylinder Low
-IDE_Reg_CylinderHigh       equ $05   ; -             Cylinder High
-IDE_Reg_HeadDevice         equ $06   ;               Head Device
+IDE_Reg_StartSector        equ $03   ; -             Start Sector   LBA:0-7
+IDE_Reg_CylinderLow        equ $04   ; -             Cylinder Low   LBA:8-15
+IDE_Reg_CylinderHigh       equ $05   ; -             Cylinder High  LBA:16-23
+IDE_Reg_HeadDevice         equ $06   ;               Head Device    LBA:24-27
 IDE_Reg_Status_Command     equ $07   ; Status        Command
 IDE_Reg_AltStatus_IRQReset equ $0e   ; Alt Status    IRQ Reset
 IDE_Reg_ActiveStatus       equ $0f   ; Active Status -
@@ -64,6 +64,154 @@ IDE_SectorCount ds      4            ; 32 bit integer
                 seg     bios_code
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_sector_count
+;;
+;; Returns
+;; RE: Address of the IDE Sector Count DWORD
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_sector_count
+ide_sector_count
+                ldi     high(IDE_SectorCount)
+                phi     re
+                ldi     low(IDE_SectorCount)
+                plo     re
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_identity_string
+;;
+;; Returns
+;; RE: Address of the ASCIIZ IDE Model String
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_identity_string
+ide_identity_string
+                ldi     high(IDE_Model)
+                phi     re
+                ldi     low(IDE_Model)
+                plo     re
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_init
+;;
+;; Initialise the IDE chipset
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine ide_init
+ide_init        call    ide_waitReady
+                lsnf
+                return
+                nop
+
+                sex     r3
+                out     IDE_Address
+                db      IDE_Reg_HeadDevice
+                out     IDE_Data
+                db      IDE_HeadDevice_SectorMode
+                out     IDE_Address
+                db      IDE_Reg_Error_Feature
+                out     IDE_Data
+                db      IDE_Feature_8Bit
+                out     IDE_Address
+                db      IDE_Reg_Status_Command
+                out     IDE_Data
+                db      IDE_Cmd_SetFeatures
+                sex     r2
+
+                call    ide_waitReady
+                lsnf
+                return
+                nop
+
+                sex     r3                          ; Send Identify Command
+                out     IDE_Address
+                db      IDE_Reg_Status_Command
+                out     IDE_Data
+                db      IDE_Cmd_Identify
+                sex     r2
+
+.waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
+                shr
+                lbdf    IDEError
+                shlc
+                ani     IDE_SR_DRQ                  ; Read Status and wait for Data Request Ready
+                lbz     .waitDRQ
+
+                sex     r3                          ; Select Data Register
+                out     IDE_Address
+                db      IDE_Reg_Data
+                sex     r2
+
+                ldi     $36                         ; Read and ignore the first 54 bytes
+                plo     re
+.skip36         inp     IDE_Data
+                dec     re
+                glo     re
+                bnz     .skip36
+
+                ldi     high(IDE_Model)             ; Read the Model Name
+                phi     rf
+                ldi     low(IDE_Model)
+                plo     rf
+                sex     rf
+
+                ldi     $14                         ; Next 40 bytes are the Model Number
+                plo     re
+.readModel      inc     rf
+                inp     IDE_Data
+                dec     rf
+                inp     IDE_Data
+                inc     rf
+                inc     rf
+                dec     re
+                glo     re
+                lbnz    .readModel
+                ldi     $0                          ; Zero Terminate the string
+                str     rf
+
+.trim           dec     rf                          ; Trim trailing spaces
+                glo     rf
+                smi     low(IDE_Model)
+                bm      .trimmed
+                ldn     rf
+                smi     $20
+                bnz     .trimmed
+                str     rf
+                br      .trim
+
+.trimmed        ldi     $1a                         ; Read and ignore the next 26 bytes
+                plo     re
+                sex     r2
+.skip1a         inp     IDE_Data
+                dec     re
+                glo     re
+                bnz     .skip1a
+
+                ldi     high(IDE_SectorCount+3)
+                phi     rf
+                ldi     low(IDE_SectorCount+3)
+                plo     rf
+                sex     rf
+
+                ldi     $04                         ; Read the sector count
+                plo     re
+.readCount      inp     IDE_Data
+                dec     rf
+                dec     re
+                glo     re
+                bnz     .readCount
+
+                sex     r2                          ; Read and ignore the remainder of the sector
+                ldi     $c2
+                plo     re
+.skip184        inp     IDE_Data
+                inp     IDE_Data
+                dec     re
+                glo     re
+                bnz     .skip184
+                adi     $00                         ; Clear DF
+                return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_waitready
 ;;
 ;; Wait for the IDE chipset to be READY
@@ -88,7 +236,7 @@ ide_waitready   sex     r3                      ; Select Status Register
                 ghi     rf
                 bnz     .testFlags
 
-.ideError       sex     r3                      ; Return Error Register with DF=1
+IDEError        sex     r3                      ; Return Error Register with DF=1
                 out     IDE_Address
                 db      IDE_Reg_Error_Feature
                 sex     r2
@@ -98,7 +246,7 @@ ide_waitready   sex     r3                      ; Select Status Register
 
 .testFlags      inp     IDE_Data                ; Read Status Register
                 shr                             ; Check Error Flag
-                bdf     .ideError
+                bdf     IDEError
                 shlc
                 ani     IDE_SR_DRDY | IDE_SR_BSY
                 xri     IDE_SR_DRDY
@@ -107,20 +255,23 @@ ide_waitready   sex     r3                      ; Select Status Register
                 return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_checksectorvalid
+;; ide_sendcommand
 ;;
-;; Internal routine, check that the sector number
-;; pointed to by RD is in range
+;; Send a Read or Write command to the IDE Controller
 ;;
 ;; Parameters
-;; RD:      Pointer to 32 bit LBA Address
+;; D:       Command ($20 Read, $30 Write)
+;; RD:      Address of a 28 bit LBA Address
+;; RC.0:    Number of sectors
+;; RC.1:    Drive, 0 = Master, 1 = Slave
 ;;
 ;; Returns
-;; DF=0 - Sector OK
-;; DF=1 - Sector Number Out of Range
+;; DF=0:    Command succeeded succesfully
+;; DF=1:    D = IDE Error Register, or 0 if Sector out of range
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_checksectorvalid
-ide_checksectorvalid
+                subroutine ide_sendcommand
+ide_sendcommand ; Check the sector is in range M(R(D)) - M(R(F))
+
                 ldi     high(IDE_SectorCount + 3)
                 phi     rf
                 ldi     low(IDE_SectorCount + 3)
@@ -129,7 +280,7 @@ ide_checksectorvalid
                 inc     rd
                 inc     rd
 
-                sex     rf                      ; Check the sector is in range M(R(D)) - M(R(F))
+                sex     rf
                 ldn     rd
                 sm
                 dec     rd
@@ -146,22 +297,18 @@ ide_checksectorvalid
                 smb
                 sex     r2
                 ldi     $00
+
+                bdf     .BadSector
+
+                call    ide_waitready           ; Wait for drive to be ready
+                bnf     .driveReady
+.BadSector      irx
                 return
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_sendcommand
-;;
-;; Send a Read or Write command to the IDE Controller
-;;
-;; Parameters
-;; D:       Command ($20 Read, $30 Write)
-;; RD:      Address of a 28 bit LBA Address
-;; RC.0:    Number of sectors
-;; RC.1:    Drive, 0 = Master, 1 = Slave
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_sendcommand
-ide_sendcommand                                 ; Load LBA Address to drive registers
-                stxd                            ; and send Read/Write Sector command
+                ; Drive is ready - setup IDE registers and send command
+
+.driveReady     lda     r6
+                stxd
                 ldi     IDE_Reg_Status_Command
                 stxd
                 glo     rc                      ; Sector Count
@@ -206,132 +353,11 @@ ide_sendcommand                                 ; Load LBA Address to drive regi
 
 .waitDRQ        inp     IDE_Data                ; Wait for Data Ready
                 shr
-                bdf     .ideerror
+                lbdf    IDEError
                 shlc
                 ani     IDE_SR_DRQ
                 bz      .waitDRQ
                 return                          ; Return with DF = 0
-
-.ideerror       sex     r3                      ; Return Error Register
-                out     IDE_Address             ; and set DF = 1
-                db      IDE_Reg_Error_Feature
-                sex     r2
-                inp     IDE_Data
-                smi     $00
-                return
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_init
-;;
-;; Initialise the IDE chipset
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_init
-ide_init        call    ide_waitReady
-
-                sex     r3
-                out     IDE_Address
-                db      IDE_Reg_HeadDevice
-                out     IDE_Data
-                db      IDE_HeadDevice_SectorMode
-                out     IDE_Address
-                db      IDE_Reg_Error_Feature
-                out     IDE_Data
-                db      IDE_Feature_8Bit
-                out     IDE_Address
-                db      IDE_Reg_Status_Command
-                out     IDE_Data
-                db      IDE_Cmd_SetFeatures
-                sex     r2
-
-                call    ide_waitReady
-
-                sex     r3                          ; Send Identify Command
-                out     IDE_Address
-                db      IDE_Reg_Status_Command
-                out     IDE_Data
-                db      IDE_Cmd_Identify
-                sex     r2
-
-
-.waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
-                ani     IDE_SR_BSY | IDE_SR_DRQ     ; Read Status and wait for Data Request Ready
-                smi     IDE_SR_DRQ
-                bnz     .waitDRQ
-
-                ldi     IDE_Reg_Data                ; Select Data Register
-                str     r2
-                out     IDE_Address
-                dec     r2
-
-                ldi     $36                         ; Read and ignore the first 54 bytes
-                plo     re
-.skip36         inp     IDE_Data
-                dec     re
-                glo     re
-                bnz     .skip36
-
-                ldi     high(IDE_Model)             ; Read the Model Name
-                phi     rf
-                ldi     low(IDE_Model)
-                plo     rf
-                sex     rf
-
-                ldi     $14                         ; Next 40 bytes are the Model Number
-                plo     re
-.readModel      inc     rf
-                inp     IDE_Data
-                dec     rf
-                inp     IDE_Data
-                inc     rf
-                inc     rf
-                dec     re
-                glo     re
-                bnz    .readModel
-                ldi     $0                          ; Zero Terminate the string
-                str     rf
-
-.trim           dec     rf                          ; Trim trailing spaces
-                glo     rf
-                smi     low(IDE_Model)
-                bm      .trimmed
-                ldn     rf
-                smi     $20
-                bnz     .trimmed
-                str     rf
-                br      .trim
-
-.trimmed        ldi     $1a                         ; Read and ignore the next 26 bytes
-                plo     re
-                sex     r2
-.skip1a         inp     IDE_Data
-                dec     re
-                glo     re
-                bnz     .skip1a
-
-                ldi     high(IDE_SectorCount+3)
-                phi     rf
-                ldi     low(IDE_SectorCount+3)
-                plo     rf
-                sex     rf
-
-                ldi     $04                         ; Read the sector count
-                plo     re
-.readCount      inp     IDE_Data
-                dec     rf
-                dec     re
-                glo     re
-                bnz     .readCount
-
-                sex     r2                          ; Read and ignore the remainder of the sector
-                ldi     $c2
-                plo     re
-.skip184        inp     IDE_Data
-                inp     IDE_Data
-                dec     re
-                glo     re
-                bnz     .skip184
-
-                return
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ide_read_sector
@@ -349,15 +375,9 @@ ide_init        call    ide_waitReady
 ;; DF=1:    D = IDE Error Register
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_read_sector
-ide_read_sector call    ide_checksectorvalid
-                bdf     ide_return
-
-                call    ide_waitready           ; Wait for drive to be ready
-                bdf     ide_return
-
-                ldi     IDE_Cmd_ReadSector
-                call    ide_sendcommand         ; and send Read/Write Sector command
-                bdf     ide_return
+ide_read_sector call    ide_sendcommand         ; and send Read Sector command
+                db      IDE_Cmd_ReadSector
+                lbdf    ide_return
 
                 sex     r3                      ; Select Data Register
                 out     IDE_Address
@@ -380,11 +400,11 @@ ide_read_sector call    ide_checksectorvalid
                 inc     re
                 dec     rf
                 glo     rf
-                bnz     .readData
+                lbnz    .readData
 
                 dec     rc
                 glo     rc
-                bnz     .sectorLoop
+                lbnz    .sectorLoop
 
 ide_rw_return   ldn     r2
                 plo     rc
@@ -421,14 +441,8 @@ ide_return      return
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine  ide_write_sector
 ide_write_sector
-                call    ide_checksectorvalid
-                lbdf    ide_return
-
-                call    ide_waitready           ; Wait for drive to be ready
-                lbdf    ide_return
-
-                ldi     IDE_Cmd_WriteSector
-                call    ide_sendcommand         ; Load LBA Address to drive registers
+                call    ide_sendcommand         ; and send Write Sector command
+                db      IDE_Cmd_WriteSector
                 lbdf    ide_return
 
                 sex     r3                      ; Select Data Register
@@ -455,31 +469,3 @@ ide_write_sector
                 bnz     .sectorLoop
 
                 lbr     ide_rw_return
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_sector_count
-;;
-;; Returns
-;; RE: Address of the IDE Sector Count DWORD
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_sector_count
-ide_sector_count
-                ldi     high(IDE_SectorCount)
-                phi     re
-                ldi     low(IDE_SectorCount)
-                plo     re
-                return
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ide_identity_string
-;;
-;; Returns
-;; RE: Address of the ASCIIZ IDE Model String
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                subroutine ide_identity_string
-ide_identity_string
-                ldi     high(IDE_Model)
-                phi     re
-                ldi     low(IDE_Model)
-                plo     re
-                return

@@ -7,21 +7,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 BIOS_Reset                      equ     $FFFD
+BIOS_IfError                    equ     $FFFA
 
-BIOS_SerialRead                 equ     $FFFA
-BIOS_SerialCount                equ     $FFF7
-BIOS_SerialWrite                equ     $FFF4
-BIOS_SerialWriteImmediate       equ     $FFF1
-BIOS_SerialWriteHex             equ     $FFEE
-BIOS_SerialWriteHexImmediate    equ     $FFEB
-BIOS_SerialWriteString          equ     $FFE8
-BIOS_SerialWriteStringAt        equ     $FFE5
-BIOS_SerialWriteStringImmediate equ     $FFE2
+BIOS_SerialRead                 equ     $FFF7
+BIOS_SerialCount                equ     $FFF4
+BIOS_SerialWrite                equ     $FFF1
+BIOS_SerialWriteImmediate       equ     $FFEE
+BIOS_SerialWriteHex             equ     $FFEB
+BIOS_SerialWriteHexImmediate    equ     $FFE8
+BIOS_SerialWriteString          equ     $FFE5
+BIOS_SerialWriteStringAt        equ     $FFE2
+BIOS_SerialWriteStringImmediate equ     $FFDF
 
-BIOS_IDEIdentityString          equ     $FFDF
-BIOS_IDESectorCount             equ     $FFDC
-BIOS_IDEReadSector              equ     $FFD9
-BIOS_IDEWriteSector             equ     $FFD6
+BIOS_IDEIdentityString          equ     $FFDC
+BIOS_IDESectorCount             equ     $FFD9
+BIOS_IDEReadSector              equ     $FFD6
+BIOS_IDEWriteSector             equ     $FFD3
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Standard CALL
@@ -52,6 +53,12 @@ return          macro
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BIOS_Reset      macro
                 lbr     BIOS_Reset
+                endm
+
+BIOS_IfError    macro   address
+                sep     r4
+                dw      BIOS_IfError
+                dw      address
                 endm
 
 BIOS_SerialRead macro
@@ -138,6 +145,11 @@ BIOS_IDEWriteSector macro
 
 BIOS_Reset      macro
                 lbr     BIOS_Reset
+                endm
+
+BIOS_IfError    macro   address
+                scal    r6, BIOS_IfError
+                dw      address
                 endm
 
 BIOS_SerialRead macro

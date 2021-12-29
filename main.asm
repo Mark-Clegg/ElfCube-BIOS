@@ -103,14 +103,21 @@ bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (
                 bnz     .loop
 
                 sex     r2
-                call    serial_init
-                call    ide_init
 
-                sex     r3                      ; Enable interrupts
+                call    serial_init
+                call    serial_write_string_at
+                dw      string_Announce
+
+                call    ide_init
+                call    iferror
+                dw      string_IDEFail
+
+.ideFound       sex     r3                      ; Enable interrupts
                 ret
                 db      $23
                 lbr     start                   ; BIOS Initialisation complete - Enter OS ???
 
+                include error.asm
                 include scrt.asm
                 include serial.asm
                 include reset.asm
@@ -124,6 +131,7 @@ bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (
 ;; RAM with each entry point preceeded by an LBR ($C0) instruction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 vector_start    dw      reset       ; $FFFD = Reset
+                dw      iferror
                 dw      serial_read
                 dw      serial_count
                 dw      serial_write
@@ -140,12 +148,15 @@ vector_start    dw      reset       ; $FFFD = Reset
 vector_end
 vector_count    equ (vector_end - vector_start) / 2
 
+string_Announce db      $1b,"[2J",$1b,"[HElf-Cube BIOS Version 1.0\r\n\r\n",0
+string_IDEFail  db      "IDE Device Error: ",0
+
                 subroutine
                 .1802
 
                 align   $100
 
-Sector          db      0,0,0,0         ; Test Sector Numbers
+Sector          db      0,0,0,55        ; Test Sector Numbers
 
 start           BIOS_SerialWriteStringImmediate "\r\n"
                 BIOS_SerialWriteStringImmediate "Drive Model: "
@@ -185,7 +196,7 @@ Command         BIOS_SerialWriteStringImmediate "(R)ead or (W)rite a Sector, or 
 GoToBIOS        BIOS_SerialWriteStringImmediate "Press <Enter> to re-start\r\n"
                 BIOS_Reset
 
-WriteTest       ldi     $22
+WriteTest       ldi     $88
                 plo     r7                      ; Value to initialise sector / sector number
 
                 ldi     $00
@@ -228,11 +239,11 @@ fillbuffer      glo     r7                      ; Write 512 bytes of R7.0
 
 Succeeded       BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate " OK\r\n"
-                lbr     start
+                lbr     Command
 
 Failed          BIOS_SerialWriteHex
                 BIOS_SerialWriteStringImmediate " Error\r\n"
-                lbr     start
+                lbr     Command
 
 ReadTest        BIOS_SerialWriteStringImmediate "Read Sector to $A000 - "
 
@@ -246,7 +257,7 @@ ReadTest        BIOS_SerialWriteStringImmediate "Read Sector to $A000 - "
                 ldi     $00
                 plo     re
 
-                ldi     $04
+                ldi     $01
                 plo     rc
                 ldi     $00
                 phi     rc
