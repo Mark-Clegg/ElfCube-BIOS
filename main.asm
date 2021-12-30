@@ -156,7 +156,7 @@ string_IDEFail  db      "IDE Device Error: ",0
 
                 align   $100
 
-Sector          db      0,0,0,55        ; Test Sector Numbers
+Sector          db      0,2,0,0         ; Test Sector Numbers
 
 start           BIOS_SerialWriteStringImmediate "\r\n"
                 BIOS_SerialWriteStringImmediate "Drive Model: "

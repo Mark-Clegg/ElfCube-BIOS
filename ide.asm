@@ -14,6 +14,7 @@ IDE_Reg_CylinderLow        equ $04   ; -             Cylinder Low   LBA:8-15
 IDE_Reg_CylinderHigh       equ $05   ; -             Cylinder High  LBA:16-23
 IDE_Reg_HeadDevice         equ $06   ;               Head Device    LBA:24-27
 IDE_Reg_Status_Command     equ $07   ; Status        Command
+IDE_Reg_Device_Control     equ $08   ; -             Device Control Register
 IDE_Reg_AltStatus_IRQReset equ $0e   ; Alt Status    IRQ Reset
 IDE_Reg_ActiveStatus       equ $0f   ; Active Status -
 
@@ -55,6 +56,11 @@ IDE_ER_MCR                 equ $08   ; Media change request
 IDE_ER_ABRT                equ $04   ; Command aborted
 IDE_ER_TK0NF               equ $02   ; Track 0 not found
 IDE_ER_AMNF                equ $01   ; No address mark
+
+;; Device Control Register BitField
+
+IDE_DCR_RESET              equ $04   ; Software Reset
+IDE_DCR_NIEN               equ $02   ; Disable Interrupts
 
                 seg     bios_data
 
@@ -131,10 +137,10 @@ ide_init        call    ide_waitReady
 
 .waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
                 shr
-                lbdf    IDEError
+                bdf     IDEError
                 shlc
                 ani     IDE_SR_DRQ                  ; Read Status and wait for Data Request Ready
-                lbz     .waitDRQ
+                bz      .waitDRQ
 
                 sex     r3                          ; Select Data Register
                 out     IDE_Address
@@ -164,7 +170,7 @@ ide_init        call    ide_waitReady
                 inc     rf
                 dec     re
                 glo     re
-                lbnz    .readModel
+                bnz     .readModel
                 ldi     $0                          ; Zero Terminate the string
                 str     rf
 
@@ -260,49 +266,19 @@ IDEError        sex     r3                      ; Return Error Register with DF=
 ;; Send a Read or Write command to the IDE Controller
 ;;
 ;; Parameters
-;; D:       Command ($20 Read, $30 Write)
-;; RD:      Address of a 28 bit LBA Address
-;; RC.0:    Number of sectors
-;; RC.1:    Drive, 0 = Master, 1 = Slave
+;; Immediate: Command ($20 Read, $30 Write)
+;; RD:        Address of a 28 bit LBA Address
+;; RC.0:      Number of sectors
+;; RC.1:      Drive, 0 = Master, 1 = Slave
 ;;
 ;; Returns
-;; DF=0:    Command succeeded succesfully
-;; DF=1:    D = IDE Error Register, or 0 if Sector out of range
+;; DF=0:      Command succeeded succesfully
+;; DF=1:      D = IDE Error Register
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 subroutine ide_sendcommand
-ide_sendcommand ; Check the sector is in range M(R(D)) - M(R(F))
-
-                ldi     high(IDE_SectorCount + 3)
-                phi     rf
-                ldi     low(IDE_SectorCount + 3)
-                plo     rf
-                inc     rd
-                inc     rd
-                inc     rd
-
-                sex     rf
-                ldn     rd
-                sm
-                dec     rd
-                dec     rf
-                ldn     rd
-                smb
-                dec     rd
-                dec     rf
-                ldn     rd
-                smb
-                dec     rd
-                dec     rf
-                ldn     rd
-                smb
-                sex     r2
-                ldi     $00
-
-                bdf     .BadSector
-
-                call    ide_waitready           ; Wait for drive to be ready
+ide_sendcommand call    ide_waitready           ; Wait for drive to be ready
                 bnf     .driveReady
-.BadSector      irx
+.BadSector      inc     r6                      ; Skip the command parameter
                 return
 
                 ; Drive is ready - setup IDE registers and send command
@@ -353,7 +329,7 @@ ide_sendcommand ; Check the sector is in range M(R(D)) - M(R(F))
 
 .waitDRQ        inp     IDE_Data                ; Wait for Data Ready
                 shr
-                lbdf    IDEError
+                bdf     IDEError
                 shlc
                 ani     IDE_SR_DRQ
                 bz      .waitDRQ
@@ -400,11 +376,11 @@ ide_read_sector call    ide_sendcommand         ; and send Read Sector command
                 inc     re
                 dec     rf
                 glo     rf
-                lbnz    .readData
+                bnz     .readData
 
                 dec     rc
                 glo     rc
-                lbnz    .sectorLoop
+                bnz     .sectorLoop
 
 ide_rw_return   ldn     r2
                 plo     rc
@@ -469,3 +445,19 @@ ide_write_sector
                 bnz     .sectorLoop
 
                 lbr     ide_rw_return
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ide_reset
+;;
+;; Send a soft reset to the IDE controller
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                subroutine  ide_reset
+ide_reset       sex     r3
+                out     IDE_Address
+                db      IDE_Reg_Device_Control
+                out     IDE_Data
+                db      IDE_DCR_RESET
+                out     IDE_Data
+                db      $00
+                sex     r2
+                return
