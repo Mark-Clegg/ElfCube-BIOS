@@ -137,7 +137,7 @@ ide_init        call    ide_waitReady
 
 .waitDRQ        inp     IDE_Data                    ; Command / Status Register is already selected
                 shr
-                bdf     IDEError
+                lbdf    IDEError
                 shlc
                 ani     IDE_SR_DRQ                  ; Read Status and wait for Data Request Ready
                 bz      .waitDRQ
@@ -442,7 +442,7 @@ ide_write_sector
 
                 dec     rc
                 glo     rc
-                bnz     .sectorLoop
+                lbnz    .sectorLoop
 
                 lbr     ide_rw_return
 

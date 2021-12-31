@@ -109,15 +109,17 @@ bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (
                 dw      string_Announce
 
                 call    ide_init
-                call    iferror
+                bnf     .ideFound
+                call    serial_write_string_at
                 dw      string_IDEFail
+
+                lbr     reset
 
 .ideFound       sex     r3                      ; Enable interrupts
                 ret
                 db      $23
                 lbr     start                   ; BIOS Initialisation complete - Enter OS ???
 
-                include error.asm
                 include scrt.asm
                 include serial.asm
                 include reset.asm
@@ -131,7 +133,6 @@ bios_init       ldi     high(interrupt)         ; Initialise Interrupt handler (
 ;; RAM with each entry point preceeded by an LBR ($C0) instruction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 vector_start    dw      reset       ; $FFFD = Reset
-                dw      iferror
                 dw      serial_read
                 dw      serial_count
                 dw      serial_write
@@ -156,7 +157,7 @@ string_IDEFail  db      "IDE Device Error: ",0
 
                 align   $100
 
-Sector          db      0,2,0,0         ; Test Sector Numbers
+Sector          db      0,0,0,0         ; Test Sector Numbers
 
 start           BIOS_SerialWriteStringImmediate "\r\n"
                 BIOS_SerialWriteStringImmediate "Drive Model: "
@@ -196,7 +197,7 @@ Command         BIOS_SerialWriteStringImmediate "(R)ead or (W)rite a Sector, or 
 GoToBIOS        BIOS_SerialWriteStringImmediate "Press <Enter> to re-start\r\n"
                 BIOS_Reset
 
-WriteTest       ldi     $88
+WriteTest       ldi     $5a
                 plo     r7                      ; Value to initialise sector / sector number
 
                 ldi     $00
